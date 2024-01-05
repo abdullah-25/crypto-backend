@@ -3,6 +3,7 @@ import requests
 import sqlite3
 from flask import jsonify
 from flask_cors import CORS
+from flask import request
 
 import sched
 import time
@@ -86,6 +87,111 @@ def insert_data_into_db(data):
     conn.commit()  
     conn.close()   
 
+def create_user_table():
+    conn = sqlite3.connect('crypto_data.db') 
+    cursor = conn.cursor()
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS user_table_crypto (
+                        user_id INTEGER,
+                        coin_name TEXT,
+                        FOREIGN KEY (coin_name) REFERENCES crypto_data(name)
+                    )''')
+    
+    conn.commit()
+    conn.close()
+
+
+create_user_table()
+
+@app.route('/v1/users/<int:user_id>/add_liked_coins', methods=['POST'])
+def add_liked_coins(user_id):
+    coin_names = request.json.get('coin_names')  
+    if not coin_names:
+        return jsonify({'error': 'No coin names provided'}), 400
+    
+    conn = sqlite3.connect('crypto_data.db')
+    cursor = conn.cursor()
+
+  
+    for coin_name in coin_names:
+        try:
+            cursor.execute('''INSERT INTO user_table_crypto (user_id, coin_name) VALUES (?, ?)''', (user_id, coin_name))
+        except sqlite3.IntegrityError:
+            # Handle potential duplicates or existing entries
+            print(f"Coin '{coin_name}' already exists for user {user_id}.")
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({'message': 'Liked coins added successfully'}), 201  
+
+# @app.route('/v1/users/<int:user_id>/liked_coins', methods=['GET'])
+# def get_user_table_data(user_id):
+#     conn = sqlite3.connect('crypto_data.db')
+#     cursor = conn.cursor()
+
+#     cursor.execute('''SELECT * FROM user_table_crypto WHERE user_id = ?''', (user_id,))
+#     data = cursor.fetchall()
+
+#     conn.close()
+
+#     return jsonify(data)
+
+
+@app.route('/v1/users/<int:user_id>/liked_coins', methods=['GET'])
+def get_liked_coins(user_id):
+    conn = sqlite3.connect('crypto_data.db')
+    cursor = conn.cursor()
+
+    # Fetch the names of coins liked by user_id 
+    cursor.execute('''SELECT coin_name FROM user_table_crypto WHERE user_id = 1''')
+    liked_coins = cursor.fetchall()
+   
+
+   
+    liked_coins_details = []
+
+    # Fetch details of each liked coin from crypto_data table
+    for coin in liked_coins:
+        cursor.execute("SELECT * FROM crypto_data WHERE name = ?", (coin[0],))
+        coin_details = cursor.fetchone()
+        
+        
+        if coin_details:
+            coin_dict = {
+                'name': coin_details[0],
+                'image': coin_details[1],
+                'symbol': coin_details[2],
+                'current_price': coin_details[3],
+                'price_change_percentage_24h': coin_details[4],
+                'market_cap': coin_details[5],
+                'market_cap_rank': coin_details[6],
+                'price_change_percentage_1h_in_currency': coin_details[7],
+                'last_updated': coin_details[8]
+            }
+            liked_coins_details.append(coin_dict)
+
+    conn.close()
+
+    return jsonify(liked_coins_details)
+
+
+
+@app.route('/v1/users/<int:user_id>/liked_coins/<string:coin_name>', methods=['DELETE'])
+def remove_liked_coin(user_id, coin_name):
+    conn = sqlite3.connect('crypto_data.db')
+    cursor = conn.cursor()
+
+    # Delete the specified coin for the given user_id
+    cursor.execute('''DELETE FROM user_table_crypto WHERE user_id = ? AND coin_name = ?''', (user_id, coin_name))
+
+    if cursor.rowcount > 0:
+        conn.commit()
+        conn.close()
+        return jsonify({'message': f"Coin '{coin_name}' removed successfully"}), 200  
+    else:
+        conn.close()
+        return jsonify({'error': f"Coin '{coin_name}' not found for user {user_id}"}), 404  
 
 
 # Flag to indicate whether an update is in progress
