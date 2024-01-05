@@ -7,6 +7,8 @@ from flask_cors import CORS
 import sched
 import time
 
+import threading
+
 
 app = Flask(__name__)
 CORS(app, resources={r"/v1/*": {"origins": "http://localhost:3000"}})
@@ -72,24 +74,38 @@ def insert_data_into_db(data):
                         
                     )''')
     
-    # Insert data into the table
     for coin in data:
-        cursor.execute('''INSERT INTO crypto_data (name, image, symbol, current_price, price_change_percentage_24h, market_cap, market_cap_rank, price_change_percentage_1h_in_currency, last_updated) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', (coin['name'], coin['image'], coin['symbol'], coin['current_price'], coin['price_change_percentage_24h'],  coin['market_cap'], coin['market_cap_rank'], coin['price_change_percentage_1h_in_currency'], coin['last_updated']))
+        try:
+            cursor.execute('''INSERT INTO crypto_data (name, image, symbol, current_price, price_change_percentage_24h, market_cap, market_cap_rank, price_change_percentage_1h_in_currency, last_updated) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', (coin['name'], coin['image'], coin['symbol'], coin['current_price'], coin['price_change_percentage_24h'],  coin['market_cap'], coin['market_cap_rank'], coin['price_change_percentage_1h_in_currency'], coin['last_updated']))
+        except sqlite3.IntegrityError:
+            cursor.execute('''UPDATE crypto_data
+                              SET image=?, symbol=?, current_price=?, price_change_percentage_24h=?, market_cap=?, market_cap_rank=?, price_change_percentage_1h_in_currency=?, last_updated=?
+                              WHERE name=?''', (coin['image'], coin['symbol'], coin['current_price'], coin['price_change_percentage_24h'],  coin['market_cap'], coin['market_cap_rank'], coin['price_change_percentage_1h_in_currency'], coin['last_updated'], coin['name']))
     
     conn.commit()  
     conn.close()   
 
 
 
+# Flag to indicate whether an update is in progress
+update_in_progress = False
+
 def update_data_scheduler(scheduler):
-    sorted_crypto_data = fetch_crypto_data()
-    
-    if sorted_crypto_data:
-        insert_data_into_db(sorted_crypto_data)
-        print('Data updated and sorted successfully!')
-    else:
-        print('Failed to update and sort data from the API.')
+    global update_in_progress
+
+    if not update_in_progress:
+        update_in_progress = True
+        
+        sorted_crypto_data = fetch_crypto_data()
+        
+        if sorted_crypto_data:
+            insert_data_into_db(sorted_crypto_data)
+            print('Data updated and sorted successfully!')
+        else:
+            print('Failed to update and sort data from the API.')
+
+        update_in_progress = False
     
     # Reschedule the update after 30 seconds
     scheduler.enter(30, 1, update_data_scheduler, (scheduler,))
@@ -97,9 +113,13 @@ def update_data_scheduler(scheduler):
 # Create a scheduler
 update_scheduler = sched.scheduler(time.time, time.sleep)
 
-# Start the scheduler
-update_scheduler.enter(0, 1, update_data_scheduler, (update_scheduler,))
-update_scheduler.run()
+
+
+def run_scheduler():
+    update_scheduler.run()
+
+scheduler_thread = threading.Thread(target=run_scheduler)
+scheduler_thread.start()
 
 if __name__ == '__main__':
-    app.run(debug=True)  
+    app.run(debug=True, port=5000)
