@@ -125,18 +125,6 @@ def add_liked_coins(user_id):
 
     return jsonify({'message': 'Liked coins added successfully'}), 201  
 
-# @app.route('/v1/users/<int:user_id>/liked_coins', methods=['GET'])
-# def get_user_table_data(user_id):
-#     conn = sqlite3.connect('crypto_data.db')
-#     cursor = conn.cursor()
-
-#     cursor.execute('''SELECT * FROM user_table_crypto WHERE user_id = ?''', (user_id,))
-#     data = cursor.fetchall()
-
-#     conn.close()
-
-#     return jsonify(data)
-
 
 @app.route('/v1/users/<int:user_id>/liked_coins', methods=['GET'])
 def get_liked_coins(user_id):
@@ -177,21 +165,24 @@ def get_liked_coins(user_id):
 
 
 
-@app.route('/v1/users/<int:user_id>/liked_coins/<string:coin_name>', methods=['DELETE'])
-def remove_liked_coin(user_id, coin_name):
+@app.route('/v1/users/<int:user_id>/liked_coins/delete', methods=['DELETE'])
+def remove_liked_coins(user_id):
+    coin_names = request.json.get('coin_names')
+    if not coin_names:
+        return jsonify({'error': 'No coin names provided'}), 400
+
     conn = sqlite3.connect('crypto_data.db')
     cursor = conn.cursor()
+    print(coin_names)
 
-    # Delete the specified coin for the given user_id
-    cursor.execute('''DELETE FROM user_table_crypto WHERE user_id = ? AND coin_name = ?''', (user_id, coin_name))
+    for coin_name in coin_names:
 
-    if cursor.rowcount > 0:
-        conn.commit()
-        conn.close()
-        return jsonify({'message': f"Coin '{coin_name}' removed successfully"}), 200  
-    else:
-        conn.close()
-        return jsonify({'error': f"Coin '{coin_name}' not found for user {user_id}"}), 404  
+        cursor.execute('''DELETE FROM user_table_crypto WHERE user_id = ? AND coin_name = ?''', (user_id, coin_name))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({'message': f'Coins removed successfully for user {user_id}'}), 200
 
 
 # Flag to indicate whether an update is in progress
