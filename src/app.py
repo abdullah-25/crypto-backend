@@ -5,6 +5,9 @@ from flask import jsonify
 from flask_cors import CORS
 from flask import request
 
+import os
+
+
 import sched
 import time
 
@@ -14,14 +17,15 @@ import threading
 app = Flask(__name__)
 CORS(app, resources={r"/v1/*": {"origins": "http://localhost:3000"}})
 
-API_ENDPOINT = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=1h&locale=en'
+
 
 
 # Function to fetch data from the CryptoGecko API
 # - Returns sorted cryptocurrency data based on price change percentage in 1 hour
 # - If the API request fails, returns None
 def fetch_crypto_data():
-    response = requests.get(API_ENDPOINT)
+    api_endpoint = os.environ.get('API_ENDPOINT')
+    response = requests.get(api_endpoint)
     if response.status_code == 200:
         crypto_data = response.json() 
         # Sort the data based on price_change_percentage_1h_in_currency
@@ -182,7 +186,7 @@ def remove_liked_coins(user_id):
     # Removes liked coins for a particular user
     # - Expects JSON input with coin names to be removed as liked for the user
     # - Returns a success message or an error if no coin names are provided
-    
+
     coin_names = request.json.get('coin_names')
     if not coin_names:
         return jsonify({'error': 'No coin names provided'}), 400
