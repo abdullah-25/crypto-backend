@@ -10,7 +10,7 @@ This repository contains a Flask application for fetching, managing, and serving
 - [Usage](#usage)
 - [API Endpoints](#api-endpoints)
 - [Scheduled Updates](#scheduled-updates)
-- [Running the Application](#running-the-application)
+
 
 ## Introduction
 
