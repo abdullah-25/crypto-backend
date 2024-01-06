@@ -16,8 +16,10 @@ CORS(app, resources={r"/v1/*": {"origins": "http://localhost:3000"}})
 
 API_ENDPOINT = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=1h&locale=en'
 
-# Function to fetch data from the CryptoGecko API
 
+# Function to fetch data from the CryptoGecko API
+# - Returns sorted cryptocurrency data based on price change percentage in 1 hour
+# - If the API request fails, returns None
 def fetch_crypto_data():
     response = requests.get(API_ENDPOINT)
     if response.status_code == 200:
@@ -31,6 +33,8 @@ def fetch_crypto_data():
 
 @app.route('/v1/crypto', methods=['GET'])
 def get_crypto_data():
+     # Fetches all cryptocurrency data from the local database
+    # - Returns a JSON response containing all cryptocurrency data
     conn = sqlite3.connect('crypto_data.db')
     cursor = conn.cursor()
 
@@ -58,6 +62,8 @@ def get_crypto_data():
     return jsonify(crypto_data)
 
 def insert_data_into_db(data):
+    # Inserts cryptocurrency data into the local database or updates existing records
+    # - Receives a list of cryptocurrency data to be inserted/updated
     conn = sqlite3.connect('crypto_data.db') 
     cursor = conn.cursor()
     
@@ -88,6 +94,8 @@ def insert_data_into_db(data):
     conn.close()   
 
 def create_user_table():
+    # Creates a table for storing user's liked coins if it doesn't exist
+
     conn = sqlite3.connect('crypto_data.db') 
     cursor = conn.cursor()
     
@@ -105,6 +113,10 @@ create_user_table()
 
 @app.route('/v1/users/<int:user_id>/add_liked_coins', methods=['POST'])
 def add_liked_coins(user_id):
+    # Adds liked coins for a particular user
+    # - Expects JSON input with coin names to be added as liked for the user
+    # - Returns a success message or an error if no coin names are provided
+
     coin_names = request.json.get('coin_names')  
     if not coin_names:
         return jsonify({'error': 'No coin names provided'}), 400
@@ -167,6 +179,10 @@ def get_liked_coins(user_id):
 
 @app.route('/v1/users/<int:user_id>/liked_coins/delete', methods=['DELETE'])
 def remove_liked_coins(user_id):
+    # Removes liked coins for a particular user
+    # - Expects JSON input with coin names to be removed as liked for the user
+    # - Returns a success message or an error if no coin names are provided
+    
     coin_names = request.json.get('coin_names')
     if not coin_names:
         return jsonify({'error': 'No coin names provided'}), 400
